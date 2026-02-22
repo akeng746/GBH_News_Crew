@@ -60,7 +60,7 @@ def load_data():
         "gateway_cities": ["place_fips", "place_name"],
         "foreign_born_total": ["year", "foreign_born_total", "place_fips", "place_name"],
         "total_population": ["year", "total_pop", "place_fips"],
-        "foreign_born_by_country": ["year", "estimate", "place_fips", "country_label"],
+        "foreign_born_by_country": ["year", "estimate", "place_fips", "country_label_estimate"],
         "rent_burden": ["year", "total_renters", "rent_burdened_30plus", "place_fips"],
     }
 
@@ -87,6 +87,15 @@ def load_data():
         df = data_map[table_name]
         for c in cols:
             df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # Normalize place_fips to string across tables to avoid dtype mismatches # co-pilot 
+    for name, df in data_map.items():
+        if "place_fips" in df.columns:
+            df["place_fips"] = df["place_fips"].astype(str).str.strip()
+
+    # Ensure countries has a `country_label` column (fallback to `country` if present) # co-pilot
+    if "country_label" not in countries.columns and "country" in countries.columns:
+        countries["country_label_estimate"] = countries["country"]
 
     return gateway, fb_total, pop, countries, rent
 
@@ -297,27 +306,50 @@ with tab2:
     try:
         st.header("How do origin countries differ across cities, and how is that changing?")
 
+        # gw_fips2 = set()
+        # for fip in gateway_fips:
+            # gw_fips2.add(int(fip))
+
         cntry_gw = countries[countries["place_fips"].isin(gateway_fips)].copy()
         cntry_gw["city"] = cntry_gw["place_fips"].map(fips_to_city)
 
+        # Debugging aids: show why the data might be empty
+        if cntry_gw.empty:
+            st.warning("No country-level rows matched gateway place_fips. Showing diagnostics below.")
+            st.write("countries columns:", list(countries.columns))
+            st.write("sample countries place_fips (first 10):", countries["place_fips"].dropna().unique()[:10].tolist())
+            st.write("sample gateway place_fips (first 10):", list(gateway["place_fips"].dropna().unique()[:10]))
+            st.write("types: countries.place_fips ->", countries["place_fips"].dtype, ", gateway.place_fips ->", gateway["place_fips"].dtype)
+
         city_options = sorted(gateway["city"].dropna().unique().tolist())
         years2 = sorted(cntry_gw["year"].dropna().unique().astype(int).tolist())
+
+        if not years2:
+            st.warning("No years available for origin-country data. Check that the 'year' column is populated.")
+            st.write("countries sample rows:")
+            st.dataframe(countries.head(10))
 
         sel_col, yr_col = st.columns([2, 1])
         with sel_col:
             selected_city = st.selectbox("Select a city", city_options)
         with yr_col:
-            year2 = st.selectbox("Select year", years2, index=len(years2) - 1, key="tab2_year")
+            # Guard the selectbox index when years2 may be empty
+            year_index = max(len(years2) - 1, 0) if years2 else 0
+            year2 = st.selectbox("Select year", years2 if years2 else ["(no data)"], index=year_index, key="tab2_year")
+
+        if not years2:
+            # Skip plotting when there's no year data
+            st.stop()
 
         city_fips_list = gateway[gateway["city"] == selected_city]["place_fips"].tolist()
         city_data = cntry_gw[cntry_gw["place_fips"].isin(city_fips_list)]
-        year_data = city_data[city_data["year"] == year2].dropna(subset=["estimate"]).nlargest(15, "estimate")
+        year_data = city_data[city_data["year"] == int(year2)].dropna(subset=["estimate"]).nlargest(15, "estimate")
 
         col1, col2 = st.columns(2)
         with col1:
             fig = px.bar(
                 year_data.sort_values("estimate"),
-                x="estimate", y="country_label", orientation="h",
+                x="estimate", y="country_label_estimate", orientation="h",
                 title=f"Top 15 Origin Countries — {selected_city} ({year2})",
                 labels={"estimate": "Foreign-Born Residents", "country_label": "Country"},
             )
@@ -325,7 +357,7 @@ with tab2:
 
         with col2:
             fig2 = px.pie(
-                year_data, values="estimate", names="country_label",
+                year_data, values="estimate", names="country_label_estimate",
                 title=f"Share by Country — {selected_city} ({year2})",
                 hole=0.35,
             )
