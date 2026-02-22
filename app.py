@@ -46,12 +46,43 @@ def load_data():
     countries = fetch_all("foreign_born_by_country")
     rent      = fetch_all("rent_burden")
 
-    for df, cols in [
-        (fb_total,  ["year", "foreign_born_total"]),
-        (pop,       ["year", "total_pop"]),
-        (countries, ["year", "estimate"]),
-        (rent,      ["year", "total_renters", "rent_burdened_30plus"]),
-    ]:
+    data_map = {
+        "gateway_cities": gateway,
+        "foreign_born_total": fb_total,
+        "total_population": pop,
+        "foreign_born_by_country": countries,
+        "rent_burden": rent,
+    }
+
+    required_cols = {
+        "gateway_cities": ["place_fips", "place_name"],
+        "foreign_born_total": ["year", "foreign_born_total", "place_fips", "place_name"],
+        "total_population": ["year", "total_pop", "place_fips"],
+        "foreign_born_by_country": ["year", "estimate", "place_fips", "country_label"],
+        "rent_burden": ["year", "total_renters", "rent_burdened_30plus", "place_fips"],
+    }
+
+    # Validate required columns and coerce numeric columns where appropriate
+    for table_name, cols in required_cols.items():
+        df = data_map.get(table_name)
+        if df is None:
+            raise Exception(f"Supabase table '{table_name}' returned no data (None).")
+        missing = [c for c in cols if c not in df.columns]
+        if missing:
+            raise Exception(
+                f"Supabase table '{table_name}' is missing columns: {missing}. "
+                f"Found columns: {list(df.columns)}. Ensure the table schema matches expected column names."
+            )
+
+    # Coerce numeric columns (only those we expect to be numeric)
+    numeric_cols_map = {
+        "foreign_born_total": ["year", "foreign_born_total"],
+        "total_population": ["year", "total_pop"],
+        "foreign_born_by_country": ["year", "estimate"],
+        "rent_burden": ["year", "total_renters", "rent_burdened_30plus"],
+    }
+    for table_name, cols in numeric_cols_map.items():
+        df = data_map[table_name]
         for c in cols:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
@@ -282,15 +313,15 @@ with tab2:
     with col1:
         fig = px.bar(
             year_data.sort_values("estimate"),
-            x="estimate", y="country", orientation="h",
+            x="estimate", y="country_label", orientation="h",
             title=f"Top 15 Origin Countries — {selected_city} ({year2})",
-            labels={"estimate": "Foreign-Born Residents", "country": ""},
+            labels={"estimate": "Foreign-Born Residents", "country_label": ""},
         )
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         fig2 = px.pie(
-            year_data, values="estimate", names="country",
+            year_data, values="estimate", names="country_label",
             title=f"Share by Country — {selected_city} ({year2})",
             hole=0.35,
         )
