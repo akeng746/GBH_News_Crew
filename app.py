@@ -129,7 +129,7 @@ ma_avg_fb = (
     .reset_index()
 )
 ma_avg_fb["fb_pct"] = ma_avg_fb["foreign_born_total"] / ma_avg_fb["total_pop"] * 100
-ma_avg_fb["city"] = "All MA places (avg)"
+ma_avg_fb["city"] = "Massachusetts (avg)"
 
 ma_avg_burden = (
     rent.groupby("year")
@@ -137,9 +137,9 @@ ma_avg_burden = (
     .reset_index()
 )
 ma_avg_burden["burden_pct"] = ma_avg_burden["rent_burdened_30plus"] / ma_avg_burden["total_renters"] * 100
-ma_avg_burden["city"] = "All MA places (avg)"
+ma_avg_burden["city"] = "Massachusetts (avg)"
 
-def add_benchmark_style(fig, name="All MA places (avg)"):
+def add_benchmark_style(fig, name="Massachusetts (avg)"):
     """Make the benchmark trace a dashed gray line."""
     fig.for_each_trace(
         lambda t: t.update(line=dict(dash="longdash", color="gray", width=3))
@@ -147,11 +147,35 @@ def add_benchmark_style(fig, name="All MA places (avg)"):
     )
     return fig
 
+st.divider()
+
+# Style tabs for better UX: larger, bolder, more spaced
+st.markdown("""
+<style>
+    /* Increase tab button size and spacing */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+    }
+    
+    /* Make tab text larger and bolder */
+    .stTabs [data-baseweb="tab"] {
+        font-size: 16px;
+        font-weight: 600;
+        padding: 12px 24px;
+    }
+    
+    /* Make active tab stand out more */
+    .stTabs [aria-selected="true"] {
+        font-weight: 700;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 tab0, tab1, tab2, tab3 = st.tabs([
-    "🗺️ Map",
-    "📈 Growth",
-    "🌍 Origin Countries",
-    "🏠 Housing Burden",
+    "Explore the Map",
+    " Population Growth Trends",
+    " Origin Countries",
+    " Housing & Economics",
 ])
 
 # ── Tab 0: Map ────────────────────────────────────────────────────────────────
@@ -201,7 +225,7 @@ with tab0:
             "fillColor":   colormap(max(fb, 0)) if fb >= 0 else "#cccccc",
             "fillOpacity": 0.75 if fb >= 0 else 0.3,
             "color":       "#cc0000" if is_gw else "#555555",
-            "weight":      2.5     if is_gw else 0.5,
+            "weight":      1.5     if is_gw else 0.5,
         }
 
     m = folium.Map(location=[42.2352, -71.0275], zoom_start=8, tiles="CartoDB positron")
@@ -251,8 +275,9 @@ with tab1:
 
     st.subheader("Trends over time")
     all_cities = sorted(growth["city"].dropna().tolist())
+    top_5_cities = growth.nlargest(5, "abs_change")["city"].tolist()
     selected_cities = st.multiselect(
-        "Select cities to compare", all_cities, default=all_cities[:6], key="tab1_cities"
+        "Select cities to compare", all_cities, default=top_5_cities, key="tab1_cities"
     )
     if selected_cities:
         sel_fips = growth[growth["city"].isin(selected_cities)]["place_fips"].tolist()
@@ -271,9 +296,9 @@ with tab1:
         fig = px.bar(
             growth.sort_values("pct_change", ascending=True),
             y="city", x="pct_change", orientation="h",
-            title=f"% Change in Foreign-Born ({min_year}–{max_year})",
+            title=f"% Change in Foreign-Born Population ({min_year}–{max_year})",
             labels={"pct_change": "% Change", "city": ""},
-            color="pct_change", color_continuous_scale="RdYlGn",
+            color="pct_change", color_continuous_scale="Viridis",
         )
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
@@ -282,7 +307,7 @@ with tab1:
         fig2 = px.bar(
             growth.sort_values("abs_change", ascending=True),
             y="city", x="abs_change", orientation="h",
-            title=f"Absolute Change in Foreign-Born ({min_year}–{max_year})",
+            title=f"Absolute Change in Foreign-Born Population ({min_year}–{max_year})",
             labels={"abs_change": "Additional People", "city": ""},
             color="abs_change", color_continuous_scale="Blues",
         )
@@ -354,7 +379,7 @@ with tab3:
     fig.add_trace(
         go.Bar(
             x=city3_data["year"], y=city3_data["foreign_born_total"],
-            name="Foreign-Born Residents", marker_color="#c0392b",
+            name="Foreign-Born Residents", marker_color="#0173B2",
         ),
         secondary_y=False,
     )
@@ -369,7 +394,7 @@ with tab3:
     fig.add_trace(
         go.Scatter(
             x=ma_avg_burden["year"], y=ma_avg_burden["burden_pct"],
-            name="All MA places (avg)", mode="lines",
+            name="Massachusetts (avg)", mode="lines",
             line=dict(dash="longdash", color="gray", width=3),
         ),
         secondary_y=True,
