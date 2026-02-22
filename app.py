@@ -10,7 +10,7 @@ import folium
 import branca.colormap as cm
 from streamlit_folium import st_folium
 from supabase import create_client
-#from openai import OpenAI
+from openai import OpenAI
 
 st.set_page_config(
     page_title="Gateway Cities: Immigration Trends",
