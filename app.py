@@ -10,7 +10,7 @@ import folium
 import branca.colormap as cm
 from streamlit_folium import st_folium
 from supabase import create_client
-from openai import OpenAI
+#from openai import OpenAI
 
 st.set_page_config(
     page_title="Gateway Cities: Immigration Trends",
@@ -182,12 +182,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-tab0, tab1, tab2, tab3, tab4 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Explore the Map",
     " Population Growth Trends",
     " Origin Countries",
     " Housing & Economics",
     " Ask a Custom Question",
+    " About the Data",
 ])
 
 # ── Tab 0: Map ────────────────────────────────────────────────────────────────
@@ -718,3 +719,60 @@ Only use variable codes from the list above. If the question is unrelated to Cen
                     )
                 elif df is not None:
                     st.warning("No data returned for that query.")
+
+# ── Tab 5: About the Data ─────────────────────────────────────────────────────
+with tab5:
+    st.header("About the Data")
+    
+    st.subheader("Data Sources")
+    st.write("""
+    This data tool uses data from the **American Community Survey (ACS) 5-Year Estimates** 
+    provided by the U.S. Census Bureau. Data spans from 2010–2024 and covers all Massachusetts 
+    municipalities.
+    
+    Key ACS Categories used include:
+    
+    - **Race and Ethnicity**
+    - **Nativity and Foreign-Born**
+    - **Place of Birth (Foreign-Born)**
+    - **Year of Entry**
+    - **Geographic Mobility (Migration)**
+    - **Income and Poverty**
+    - **Housing and Rent Burden**
+    - **Employment**
+    - **Educational**
+    """)
+    
+    st.subheader("Methodology")
+    st.write("""
+    All population figures are derived from the 5-year rolling averages published by the 
+    Census Bureau, which combine data from five years of surveys to improve reliability for 
+    smaller geographies. Percentages are calculated as:
+    
+    - **Foreign-Born %**: (Foreign-Born Total / Total Population) × 100
+    - **Rent Burden %**: (Renter Households spending 30%+ on rent / Total Renters) × 100
+    - **Growth %**: ((Latest Year Value − Base Year Value) / Base Year Value) × 100
+    
+    All data is presented at the municipality level. Charts include Massachusetts state averages 
+    (population-weighted) for reference and comparison.
+    """)
+    
+    st.subheader("Key Definitions")
+    st.write("""
+    - **Foreign-Born Population**: People who were not U.S. citizens at birth (ACS B05002_013E)
+    - **Gateway Cities**:In Massachusetts, a Gateway City is a municipality with a population between 35,000 and 250,000, a median household income below the state average, and a rate of bachelor’s degree attainment below the state average, a status officially designated by the Massachusetts State Legislature.
+    - **Rent Burden**: Percentage of renter household income spent on gross rent; households spending 
+      30% or more are considered "rent-burdened" (ACS B25070)
+    - **ACS Estimates**: 5-year rolling averages that provide greater statistical reliability for 
+      smaller geographic areas than 1-year estimates
+    """)
+    
+    st.subheader("Limitations & Notes")
+    st.write("""
+    - Due to Census Bureau confidentiality protections, some small municipalities may have suppressed 
+      or unavailable data for certain metrics
+    - Margin of error varies by municipality size; smaller towns have larger confidence intervals
+    - Country-of-origin data availability varies by year
+    - Origin country classifications follow Census Bureau standards and may differ from other sources
+    """)
+    
