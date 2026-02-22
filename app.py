@@ -182,11 +182,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-tab0, tab1, tab2, tab3 = st.tabs([
+tab0, tab1, tab2, tab3, tab4 = st.tabs([
     "Explore the Map",
     " Population Growth Trends",
     " Origin Countries",
     " Housing & Economics",
+    " Ask a Custom Question",
 ])
 
 # ── Tab 0: Map ────────────────────────────────────────────────────────────────
@@ -604,15 +605,15 @@ Available variables:
 
 Example output:
 {{
-  "variables": ["B19013_001E"],
-  "year": 2022,
-  "geo": "county:*&in=state:25",
-  "chart_type": "bar",
-  "x_col": "NAME",
-  "y_col": "B19013_001E",
-  "title": "Median Household Income by County in MA (2022)",
-  "x_label": "County",
-  "y_label": "Median Household Income ($)"
+    "variables": ["B19013_001E"],
+    "year": 2022,
+    "geo": "county:*&in=state:25",
+    "chart_type": "bar",
+    "x_col": "NAME",
+    "y_col": "B19013_001E",
+    "title": "Median Household Income by County in MA (2022)",
+    "x_label": "County",
+    "y_label": "Median Household Income ($)"
 }}
 
 Only use variable codes from the list above. If the question is unrelated to Census data, return:
@@ -697,16 +698,16 @@ Only use variable codes from the list above. If the question is unrelated to Cen
 
                     if chart_type == "bar":
                         fig = px.bar(df_sorted, x=y, y=x, orientation="h",
-                                     title=title, labels={y: y_label, x: x_label})
+                                    title=title, labels={y: y_label, x: x_label})
                     elif chart_type == "scatter":
                         fig = px.scatter(df_sorted, x=x, y=y,
-                                         title=title, labels={y: y_label, x: x_label},
-                                         hover_name=x if x == "NAME" else None)
+                                        title=title, labels={y: y_label, x: x_label},
+                                        hover_name=x if x == "NAME" else None)
                     elif chart_type == "pie":
                         fig = px.pie(df_sorted, values=y, names=x, title=title)
                     else:
                         fig = px.line(df_sorted, x=x, y=y,
-                                      title=title, labels={y: y_label, x: x_label})
+                                    title=title, labels={y: y_label, x: x_label})
 
                     st.plotly_chart(fig, use_container_width=True)
                     st.download_button(
