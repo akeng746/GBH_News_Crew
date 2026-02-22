@@ -3,3 +3,5 @@ plotly
 folium
 supabase
 streamlit_folium
+openai
+requests
