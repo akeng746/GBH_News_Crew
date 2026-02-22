@@ -317,15 +317,15 @@ with tab2:
         with col1:
             fig = px.bar(
                 year_data.sort_values("estimate"),
-                x="estimate", y="country", orientation="h",
+                x="estimate", y="country_label", orientation="h",
                 title=f"Top 15 Origin Countries — {selected_city} ({year2})",
-                labels={"estimate": "Foreign-Born Residents", "country": ""},
+                labels={"estimate": "Foreign-Born Residents", "country_label": "Country"},
             )
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             fig2 = px.pie(
-                year_data, values="estimate", names="country",
+                year_data, values="estimate", names="country_label",
                 title=f"Share by Country — {selected_city} ({year2})",
                 hole=0.35,
             )
