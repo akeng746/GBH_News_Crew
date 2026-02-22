@@ -2,6 +2,9 @@
 **CityHack – GBH Gateway Cities Challenge Submission**
 
 ---
+## Inspiration
+
+Developed for GBH News during the Civic Hacks 2026 Hackathon, this project facilitates deep-dive reporting on Massachusetts Gateway Cities: urban centers with populations between 35,000 and 250,000 where income and graduation rates fall below the state average. By visualizing American Community Survey (ACS) data, journalists can track how foreign-born population trends intersect with shifting economic and housing characteristics over time. This tool is designed to move beyond statewide statistics and pinpoint localized data that can inform reporting.
 
 ## 1. Project Overview
 
