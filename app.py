@@ -236,7 +236,7 @@ with tab0:
         style_function=style_fn,
         tooltip=folium.GeoJsonTooltip(
             fields=["TOWN", "gateway_str", "fb_pct_str", "fb_count_str"],
-            aliases=["Town:", "", "Foreign-born:", "People:"],
+            aliases=["City:", "", "Foreign-born:", "People:"],
             style="font-size: 13px; font-family: sans-serif;",
             localize=True,
         ),
@@ -290,6 +290,10 @@ with tab1:
             title="Foreign-Born as % of Total Population Over Time",
             labels={"fb_pct": "% Foreign-Born", "year": "Year", "city": "City"},
         )
+        fig3.update_traces(
+            hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>% Foreign-Born: %{y:.2f}%<extra></extra>',
+            hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"), namelength=-1)
+        )
         add_benchmark_style(fig3)
         st.plotly_chart(fig3, use_container_width=True)
 
@@ -302,6 +306,10 @@ with tab1:
             labels={"pct_change": "% Change", "city": ""},
             color="pct_change", color_continuous_scale="Viridis",
         )
+        fig.update_traces(
+            hovertemplate='<b>%{y}</b><br>% Change: %{x:.2f}%<extra></extra>',
+            hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"), namelength=-1)
+        )
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -312,6 +320,10 @@ with tab1:
             title=f"Absolute Change in Foreign-Born Population ({min_year}–{max_year})",
             labels={"abs_change": "Additional People", "city": ""},
             color="abs_change", color_continuous_scale="Blues",
+        )
+        fig2.update_traces(
+            hovertemplate='<b>%{y}</b><br>Additional People: %{x:,.0f}<extra></extra>',
+            hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"), namelength=-1)
         )
         fig2.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig2, use_container_width=True)
@@ -413,6 +425,21 @@ with tab3:
     )
     fig.update_yaxes(title_text="Foreign-Born Residents", secondary_y=False)
     fig.update_yaxes(title_text="Rent Burden %", secondary_y=True)
+    fig.update_traces(
+        selector=dict(name="Foreign-Born Residents"),
+        hovertemplate='Year: %{x}<br>Foreign-Born Residents: %{y:,.0f}<extra></extra>',
+        hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"))
+    )
+    fig.update_traces(
+        selector=dict(name="Rent Burden %"),
+        hovertemplate='Year: %{x}<br>Rent Burden %: %{y:.2f}%<extra></extra>',
+        hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"))
+    )
+    fig.update_traces(
+        selector=dict(name="Massachusetts (avg)"),
+        hovertemplate='Year: %{x}<br>Rent Burden %: %{y:.2f}%<extra></extra>',
+        hoverlabel=dict(bgcolor="white", font=dict(color="black", size=12, family="sans-serif"))
+    )
     st.plotly_chart(fig, use_container_width=True)
     st.caption("Rent burden = share of renter households spending 30%+ of income on rent (ACS B25070).")
   except Exception as e:
