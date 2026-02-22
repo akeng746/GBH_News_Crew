@@ -1,5 +1,6 @@
 import json
 import os
+import requests
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -9,6 +10,7 @@ import folium
 import branca.colormap as cm
 from streamlit_folium import st_folium
 from supabase import create_client
+from openai import OpenAI
 
 st.set_page_config(
     page_title="Gateway Cities: Immigration Trends",
@@ -316,44 +318,48 @@ with tab1:
 
 # ── Tab 2: Origin Countries ───────────────────────────────────────────────────
 with tab2:
-    st.header("How do origin countries differ across cities, and how is that changing?")
+    try:
+        st.header("How do origin countries differ across cities, and how is that changing?")
 
-    cntry_gw = countries[countries["place_fips"].isin(gateway_fips)].copy()
-    cntry_gw["city"] = cntry_gw["place_fips"].map(fips_to_city)
+        cntry_gw = countries[countries["place_fips"].isin(gateway_fips)].copy()
+        cntry_gw["city"] = cntry_gw["place_fips"].map(fips_to_city)
 
-    city_options = sorted(gateway["city"].dropna().unique().tolist())
-    years2 = sorted(cntry_gw["year"].dropna().unique().astype(int).tolist())
+        city_options = sorted(gateway["city"].dropna().unique().tolist())
+        years2 = sorted(cntry_gw["year"].dropna().unique().astype(int).tolist())
 
-    sel_col, yr_col = st.columns([2, 1])
-    with sel_col:
-        selected_city = st.selectbox("Select a city", city_options)
-    with yr_col:
-        year2 = st.selectbox("Select year", years2, index=len(years2) - 1, key="tab2_year")
+        sel_col, yr_col = st.columns([2, 1])
+        with sel_col:
+            selected_city = st.selectbox("Select a city", city_options)
+        with yr_col:
+            year2 = st.selectbox("Select year", years2, index=len(years2) - 1, key="tab2_year")
 
-    city_fips_list = gateway[gateway["city"] == selected_city]["place_fips"].tolist()
-    city_data = cntry_gw[cntry_gw["place_fips"].isin(city_fips_list)]
-    year_data = city_data[city_data["year"] == year2].dropna(subset=["estimate"]).nlargest(15, "estimate")
+        city_fips_list = gateway[gateway["city"] == selected_city]["place_fips"].tolist()
+        city_data = cntry_gw[cntry_gw["place_fips"].isin(city_fips_list)]
+        year_data = city_data[city_data["year"] == year2].dropna(subset=["estimate"]).nlargest(15, "estimate")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        fig = px.bar(
-            year_data.sort_values("estimate"),
-            x="estimate", y="country_label", orientation="h",
-            title=f"Top 15 Origin Countries — {selected_city} ({year2})",
-            labels={"estimate": "Foreign-Born Residents", "country_label": ""},
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.bar(
+                year_data.sort_values("estimate"),
+                x="estimate", y="country", orientation="h",
+                title=f"Top 15 Origin Countries — {selected_city} ({year2})",
+                labels={"estimate": "Foreign-Born Residents", "country": ""},
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-    with col2:
-        fig2 = px.pie(
-            year_data, values="estimate", names="country_label",
-            title=f"Share by Country — {selected_city} ({year2})",
-            hole=0.35,
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+        with col2:
+            fig2 = px.pie(
+                year_data, values="estimate", names="country",
+                title=f"Share by Country — {selected_city} ({year2})",
+                hole=0.35,
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+    except Exception as e:
+        st.error(f"Origin Countries tab error: {e}")
 
 # ── Tab 3: Housing Burden Correlation ────────────────────────────────────────
 with tab3:
+  try:
     st.header("Are changes in foreign-born population correlated with housing burden?")
 
     fb_gw2  = fb_total[fb_total["place_fips"].isin(gateway_fips)].copy()
@@ -409,3 +415,246 @@ with tab3:
     fig.update_yaxes(title_text="Rent Burden %", secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
     st.caption("Rent burden = share of renter households spending 30%+ of income on rent (ACS B25070).")
+  except Exception as e:
+    st.error(f"Housing Burden tab error: {e}")
+
+# ── Tab 4: Custom Query ───────────────────────────────────────────────────────
+with tab4:
+    st.header("Want to find something else?")
+
+    CENSUS_VARIABLES = """
+## POPULATION
+B01003_001E: Total population
+
+## RACE & ETHNICITY
+B02001_002E: White alone
+B02001_003E: Black or African American alone
+B02001_004E: American Indian and Alaska Native alone
+B02001_005E: Asian alone
+B02001_006E: Native Hawaiian and Other Pacific Islander alone
+B02001_007E: Some other race alone
+B03002_003E: White alone, not Hispanic or Latino
+B03002_012E: Hispanic or Latino (any race)
+B03001_003E: Hispanic or Latino total
+
+## NATIVITY & FOREIGN-BORN
+B05002_001E: Total population (nativity)
+B05002_002E: Native-born population
+B05002_013E: Foreign-born population total
+B05001_001E: Total population (citizenship)
+B05001_005E: U.S. citizen by naturalization
+B05001_006E: Not a U.S. citizen
+B05002_014E: Foreign-born: naturalized citizen
+B05002_021E: Foreign-born: not a citizen
+
+## PLACE OF BIRTH (FOREIGN-BORN)
+B05006_001E: Total foreign-born population (place of birth)
+B05006_002E: Foreign-born from Europe
+B05006_047E: Foreign-born from Asia
+B05006_091E: Foreign-born from Africa
+B05006_100E: Foreign-born from Oceania
+B05006_101E: Foreign-born from Latin America
+B05006_123E: Foreign-born from Northern America
+
+## YEAR OF ENTRY
+B05005_001E: Total foreign-born (year of entry)
+B05005_002E: Entered 2010 or later
+B05005_006E: Entered 2000 to 2009
+B05005_009E: Entered before 2000
+
+## GEOGRAPHIC MOBILITY (MIGRATION)
+B07001_001E: Total population 1 year and over (mobility)
+B07001_017E: Lived in same house 1 year ago (did not move)
+B07001_033E: Moved within same county
+B07001_049E: Moved from different county, same state
+B07001_065E: Moved from different state
+B07001_081E: Moved from abroad
+B07003_004E: Male movers from different state
+B07003_007E: Female movers from different state
+B07013_001E: Total population in occupied housing units (mobility)
+B07013_003E: Moved in same county — renters
+
+## INCOME
+B19013_001E: Median household income (all households)
+B19013B_001E: Median household income — Black or African American households
+B19013D_001E: Median household income — Asian households
+B19013H_001E: Median household income — White non-Hispanic households
+B19013I_001E: Median household income — Hispanic or Latino households
+B19301_001E: Per capita income
+B19083_001E: Gini index of income inequality
+B19001_001E: Total households (household income distribution)
+B19001_002E: Households with income less than $10,000
+B19001_011E: Households with income $50,000 to $59,999
+B19001_014E: Households with income $100,000 to $124,999
+B19001_017E: Households with income $200,000 or more
+
+## POVERTY
+B17001_001E: Total population (poverty status)
+B17001_002E: Population below poverty level
+B17001_031E: Population at or above poverty level
+C17002_001E: Total (ratio of income to poverty level)
+C17002_002E: Under 0.50 (deep poverty)
+C17002_003E: 0.50 to 0.99 (below poverty)
+C17002_004E: 1.00 to 1.24 (near poverty)
+C17002_008E: 2.00 and over (200%+ of poverty line)
+
+## HOUSING & RENT BURDEN
+B25070_001E: Total renter-occupied units (gross rent as % of income)
+B25070_007E: Gross rent 30.0 to 34.9% of income (rent burdened)
+B25070_008E: Gross rent 35.0 to 39.9% of income
+B25070_009E: Gross rent 40.0 to 49.9% of income
+B25070_010E: Gross rent 50% or more of income (severely rent burdened)
+B25064_001E: Median gross rent (dollars)
+B25003_001E: Total occupied housing units (tenure)
+B25003_002E: Owner-occupied housing units
+B25003_003E: Renter-occupied housing units
+
+## EMPLOYMENT
+B23025_001E: Total civilian population 16 years and over
+B23025_002E: In labor force
+B23025_004E: Employed (civilian labor force)
+B23025_005E: Unemployed
+B23025_007E: Not in labor force
+
+## EDUCATION
+B15003_001E: Total population 25 years and over (educational attainment)
+B15003_017E: Population with high school diploma (or equivalent)
+B15003_022E: Population with bachelor's degree
+B15003_023E: Population with master's degree
+B15003_025E: Population with doctorate degree
+"""
+
+    GEMINI_SYSTEM_PROMPT = f"""
+You are a Census data assistant helping journalists explore Massachusetts data.
+Given a plain English question, return ONLY a valid JSON object (no markdown, no explanation) with:
+
+- "variables": list of ACS variable codes to fetch (from the list below)
+- "year": integer year (use 2022 unless the user specifies)
+- "geo": Census API geo string, one of:
+    "county:*&in=state:25"  (all MA counties)
+    "place:*&in=state:25"   (all MA cities/towns)
+- "chart_type": one of "bar", "line", "scatter", "pie"
+- "x_col": column name for x-axis (usually "NAME")
+- "y_col": the primary variable code to plot
+- "title": a descriptive chart title
+- "x_label": x-axis label
+- "y_label": y-axis label
+
+Available variables:
+{CENSUS_VARIABLES}
+
+Example output:
+{{
+  "variables": ["B19013_001E"],
+  "year": 2022,
+  "geo": "county:*&in=state:25",
+  "chart_type": "bar",
+  "x_col": "NAME",
+  "y_col": "B19013_001E",
+  "title": "Median Household Income by County in MA (2022)",
+  "x_label": "County",
+  "y_label": "Median Household Income ($)"
+}}
+
+Only use variable codes from the list above. If the question is unrelated to Census data, return:
+{{"error": "I can only answer questions about Census data for Massachusetts."}}
+"""
+
+    def fetch_census_data(variables, geo, year):
+        base_url = f"https://api.census.gov/data/{year}/acs/acs5"
+        get_cols = ",".join(variables) + ",NAME"
+        # Split "county:*&in=state:25" into {"for": "county:*", "in": "state:25"}
+        params = {"get": get_cols}
+        for part in geo.split("&"):
+            if part.startswith("in="):
+                params["in"] = part[3:]
+            else:
+                params["for"] = part.replace("for=", "")
+        census_api_key = st.secrets.get("CENSUS_API_KEY", None)
+        if census_api_key:
+            params["key"] = census_api_key
+        r = requests.get(base_url, params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        for v in variables:
+            if v in df.columns:
+                df[v] = pd.to_numeric(df[v], errors="coerce")
+        # Clean up NAME column (e.g. "Suffolk County, Massachusetts" → "Suffolk County")
+        if "NAME" in df.columns:
+            df["NAME"] = df["NAME"].str.replace(", Massachusetts", "", regex=False)
+        return df
+
+    def ask_gemini(question):
+        client = OpenAI(
+            api_key=st.secrets["DEEPSEEK_API_KEY"],
+            base_url="https://api.deepseek.com",
+        )
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": GEMINI_SYSTEM_PROMPT},
+                {"role": "user", "content": question},
+            ],
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content.strip()
+        return json.loads(raw)
+
+    question = st.text_input(
+        "",
+        placeholder="e.g. Which counties have the highest median income? Show me migration trends by county.",
+    )
+    submit = st.button("Search")
+
+    if submit and question:
+        with st.spinner("Thinking..."):
+            try:
+                query = ask_gemini(question)
+            except Exception as e:
+                st.error(f"Gemini error: {e}")
+                query = None
+
+        if query:
+            if "error" in query:
+                st.warning(query["error"])
+            else:
+                with st.spinner("Fetching Census data..."):
+                    try:
+                        df = fetch_census_data(query["variables"], query["geo"], query["year"])
+                    except Exception as e:
+                        st.error(f"Census API error: {e}")
+                        df = None
+
+                if df is not None and not df.empty:
+                    x = query.get("x_col", "NAME")
+                    y = query.get("y_col", query["variables"][0])
+                    title = query.get("title", "Census Data")
+                    x_label = query.get("x_label", x)
+                    y_label = query.get("y_label", y)
+                    chart_type = query.get("chart_type", "bar")
+
+                    df_sorted = df.dropna(subset=[y]).sort_values(y, ascending=True)
+
+                    if chart_type == "bar":
+                        fig = px.bar(df_sorted, x=y, y=x, orientation="h",
+                                     title=title, labels={y: y_label, x: x_label})
+                    elif chart_type == "scatter":
+                        fig = px.scatter(df_sorted, x=x, y=y,
+                                         title=title, labels={y: y_label, x: x_label},
+                                         hover_name=x if x == "NAME" else None)
+                    elif chart_type == "pie":
+                        fig = px.pie(df_sorted, values=y, names=x, title=title)
+                    else:
+                        fig = px.line(df_sorted, x=x, y=y,
+                                      title=title, labels={y: y_label, x: x_label})
+
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.download_button(
+                        label="Download CSV",
+                        data=df.to_csv(index=False),
+                        file_name="census_data.csv",
+                        mime="text/csv",
+                    )
+                elif df is not None:
+                    st.warning("No data returned for that query.")
